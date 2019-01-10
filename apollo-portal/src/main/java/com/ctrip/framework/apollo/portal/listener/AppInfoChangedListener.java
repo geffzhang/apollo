@@ -24,10 +24,9 @@ public class AppInfoChangedListener {
   @Autowired
   private PortalSettings portalSettings;
 
-
   @EventListener
   public void onAppInfoChange(AppInfoChangedEvent event) {
-    AppDTO appDTO = BeanUtils.transfrom(AppDTO.class, event.getApp());
+    AppDTO appDTO = BeanUtils.transform(AppDTO.class, event.getApp());
     String appId = appDTO.getAppId();
 
     List<Env> envs = portalSettings.getActiveEnvs();
@@ -39,7 +38,5 @@ public class AppInfoChangedListener {
         Tracer.logError(String.format("Update app's info failed. Env = %s, AppId = %s", env, appId), e);
       }
     }
-
   }
-
 }

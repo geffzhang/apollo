@@ -7,12 +7,13 @@ import com.ctrip.framework.apollo.common.exception.BadRequestException;
 import com.ctrip.framework.apollo.common.exception.NotFoundException;
 import com.ctrip.framework.apollo.common.utils.BeanUtils;
 import com.ctrip.framework.apollo.common.utils.InputValidator;
-
+import com.ctrip.framework.apollo.core.ConfigConsts;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,7 +25,7 @@ public class ClusterController {
   @Autowired
   private ClusterService clusterService;
 
-  @RequestMapping(path = "/apps/{appId}/clusters", method = RequestMethod.POST)
+  @PostMapping("/apps/{appId}/clusters")
   public ClusterDTO create(@PathVariable("appId") String appId,
                            @RequestParam(value = "autoCreatePrivateNamespace", defaultValue = "true") boolean autoCreatePrivateNamespace,
                            @RequestBody ClusterDTO dto) {
@@ -32,7 +33,7 @@ public class ClusterController {
       throw new BadRequestException(String.format("Cluster格式错误: %s", InputValidator.INVALID_CLUSTER_NAMESPACE_MESSAGE));
     }
 
-    Cluster entity = BeanUtils.transfrom(Cluster.class, dto);
+    Cluster entity = BeanUtils.transform(Cluster.class, dto);
     Cluster managedEntity = clusterService.findOne(appId, entity.getName());
     if (managedEntity != null) {
       throw new BadRequestException("cluster already exist.");
@@ -44,37 +45,44 @@ public class ClusterController {
       entity = clusterService.saveWithoutInstanceOfAppNamespaces(entity);
     }
 
-    dto = BeanUtils.transfrom(ClusterDTO.class, entity);
+    dto = BeanUtils.transform(ClusterDTO.class, entity);
     return dto;
   }
 
-  @RequestMapping(path = "/apps/{appId}/clusters/{clusterName:.+}", method = RequestMethod.DELETE)
+  @DeleteMapping("/apps/{appId}/clusters/{clusterName:.+}")
   public void delete(@PathVariable("appId") String appId,
                      @PathVariable("clusterName") String clusterName, @RequestParam String operator) {
+
     Cluster entity = clusterService.findOne(appId, clusterName);
+
     if (entity == null) {
       throw new NotFoundException("cluster not found for clusterName " + clusterName);
     }
+
+    if(ConfigConsts.CLUSTER_NAME_DEFAULT.equals(entity.getName())){
+      throw new BadRequestException("can not delete default cluster!");
+    }
+
     clusterService.delete(entity.getId(), operator);
   }
 
-  @RequestMapping(value = "/apps/{appId}/clusters", method = RequestMethod.GET)
+  @GetMapping("/apps/{appId}/clusters")
   public List<ClusterDTO> find(@PathVariable("appId") String appId) {
     List<Cluster> clusters = clusterService.findParentClusters(appId);
     return BeanUtils.batchTransform(ClusterDTO.class, clusters);
   }
 
-  @RequestMapping(value = "/apps/{appId}/clusters/{clusterName:.+}", method = RequestMethod.GET)
+  @GetMapping("/apps/{appId}/clusters/{clusterName:.+}")
   public ClusterDTO get(@PathVariable("appId") String appId,
                         @PathVariable("clusterName") String clusterName) {
     Cluster cluster = clusterService.findOne(appId, clusterName);
     if (cluster == null) {
       throw new NotFoundException("cluster not found for name " + clusterName);
     }
-    return BeanUtils.transfrom(ClusterDTO.class, cluster);
+    return BeanUtils.transform(ClusterDTO.class, cluster);
   }
 
-  @RequestMapping(value = "/apps/{appId}/cluster/{clusterName}/unique", method = RequestMethod.GET)
+  @GetMapping("/apps/{appId}/cluster/{clusterName}/unique")
   public boolean isAppIdUnique(@PathVariable("appId") String appId,
                                @PathVariable("clusterName") String clusterName) {
     return clusterService.isClusterNameUnique(appId, clusterName);
